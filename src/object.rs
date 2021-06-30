@@ -1,7 +1,7 @@
+use bytes::Bytes;
 use quick_xml::{events::Event, Reader};
 use reqwest::header::{HeaderMap, CONTENT_LENGTH, DATE};
 use std::collections::HashMap;
-use std::future::Future;
 
 use super::auth::*;
 use super::errors::{Error, ObjectError};
@@ -77,7 +77,7 @@ impl<'a> OSS<'a> {
         object_name: S1,
         headers: H,
         resources: R,
-    ) -> Result<Vec<u8>, Error>
+    ) -> Result<Bytes, Error>
     where
         S1: AsRef<str>,
         S2: AsRef<str>,
@@ -111,16 +111,35 @@ impl<'a> OSS<'a> {
         headers.insert("Authorization", authorization.parse()?);
 
         let resp = self.client.get(&host).headers(headers).send().await?;
-        // let mut buf: Vec<u8> = vec![];
 
         if resp.status().is_success() {
-            // resp.copy_to(&mut buf)?;
-            Ok(resp.bytes().await?.as_ref().to_vec())
+            Ok(resp.bytes().await?)
         } else {
             Err(Error::Object(ObjectError::GetError {
                 msg: format!("can not get object, status code: {}", resp.status()).into(),
             }))
         }
+    }
+
+    pub async fn get_object_to_file<S1, S2, H, R>(
+        &self,
+        file_name: S1,
+        object_name: S1,
+        headers: H,
+        resources: R,
+    ) -> Result<(), Error>
+    where
+        S1: AsRef<str>,
+        S2: AsRef<str>,
+        H: Into<Option<HashMap<S2, S2>>>,
+        R: Into<Option<HashMap<S2, Option<S2>>>>,
+    {
+        save_to_file(
+            self.get_object(object_name, headers, resources)
+                .await?
+                .to_vec(),
+            file_name,
+        )
     }
 
     pub async fn get_object_acl<S>(&self, object_name: S) -> Result<String, Error>
@@ -130,7 +149,11 @@ impl<'a> OSS<'a> {
         let object_name = object_name.as_ref();
         let mut params: HashMap<&str, Option<&str>> = HashMap::new();
         params.insert("acl", None);
-        let result = String::from_utf8(self.get_object(object_name, None, Some(params)).await?)?;
+        let result = String::from_utf8(
+            self.get_object(object_name, None, Some(params))
+                .await?
+                .to_vec(),
+        )?;
         let mut reader = Reader::from_str(&result);
         reader.trim_text(true);
         let mut buf = Vec::new();

@@ -131,7 +131,7 @@ impl Bucket {
 }
 
 impl<'a> OSS<'a> {
-    async fn list_bucket<S, R>(&self, resources: R) -> Result<ListBuckets, Error>
+    pub async fn list_bucket<S, R>(&self, resources: R) -> Result<ListBuckets, Error>
     where
         S: AsRef<str>,
         R: Into<Option<HashMap<S, Option<S>>>>,

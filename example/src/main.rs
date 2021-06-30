@@ -1,31 +1,22 @@
-use std::str;
 use oss_rust_sdk::prelude::*;
 use std::collections::HashMap;
-use tokio::runtime::Runtime;
+use std::error::Error;
+use std::str;
 
-fn main() {
-    get_object();
-    async_get_object();
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn Error>> {
+    let oss_instance = OSS::new(
+        "your_AccessKeyId",
+        "your_AccessKeySecret",
+        "your_Endpoint",
+        "your_Bucket",
+    );
+
+    oss_instance.put_object_from_file("example", "example", None::<HashMap<&str, &str>>, None).await?;
+
+    let buf = oss_instance.get_object("cargo-toml", None::<HashMap<&str, &str>>, None).await?;
+    println!("buffer = {:?}", String::from_utf8(buf.to_vec()));
+
+    oss_instance.get_object_to_file("example.download1", "example", None::<HashMap<&str, &str>>, None).await?;
+    Ok(())
 }
-
-fn get_object() {
-    // use your own oss config
-    let oss_instance = OSS::new("your_AccessKeyId", "your_AccessKeySecret", "your_Endpoint", "your_Bucket");
-
-    let result = oss_instance.get_object("objectName", None::<HashMap<&str, &str>>, None);
-    assert_eq!(result.is_ok(), true);
-    println!("text = {:?}", String::from_utf8(result.unwrap()));
-}
-
-fn async_get_object() {
-    // use your own oss config
-    let oss_instance = OSS::new("your_AccessKeyId", "your_AccessKeySecret", "your_Endpoint", "your_Bucket");
-
-    let mut rt = Runtime::new().expect("failed to start runtime");
-
-    rt.block_on(async move {
-        let buf = oss_instance.async_get_object("objectName", None, None).await.unwrap();
-        println!("buffer = {:?}", String::from_utf8(buf.to_vec()));
-    });
-}
-
