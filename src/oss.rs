@@ -1,6 +1,6 @@
 use bytes::Bytes;
 use chrono::prelude::*;
-use reqwest::blocking::Client;
+use reqwest::Client;
 use reqwest::header::{HeaderMap, DATE};
 use std::borrow::Cow;
 use std::collections::HashMap;
@@ -81,7 +81,7 @@ impl<'a> OSS<'a> {
             key_secret: key_secret.into(),
             endpoint: endpoint.into(),
             bucket: bucket.into(),
-            client: reqwest::blocking::Client::new(),
+            client: reqwest::Client::new(),
         }
     }
 

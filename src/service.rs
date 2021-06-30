@@ -130,15 +130,8 @@ impl Bucket {
     }
 }
 
-pub trait ServiceAPI {
-    fn list_bucket<S, R>(&self, resources: R) -> Result<ListBuckets, Error>
-    where
-        S: AsRef<str>,
-        R: Into<Option<HashMap<S, Option<S>>>>;
-}
-
-impl<'a> ServiceAPI for OSS<'a> {
-    fn list_bucket<S, R>(&self, resources: R) -> Result<ListBuckets, Error>
+impl<'a> OSS<'a> {
+    async fn list_bucket<S, R>(&self, resources: R) -> Result<ListBuckets, Error>
     where
         S: AsRef<str>,
         R: Into<Option<HashMap<S, Option<S>>>>,
@@ -164,9 +157,9 @@ impl<'a> ServiceAPI for OSS<'a> {
         );
         headers.insert("Authorization", authorization.parse()?);
 
-        let resp = self.client.get(host).headers(headers).send()?;
+        let resp = self.client.get(host).headers(headers).send().await?;
 
-        let xml_str = resp.text()?;
+        let xml_str = resp.text().await?;
         let mut result = Vec::new();
         let mut reader = Reader::from_str(xml_str.as_str());
         reader.trim_text(true);

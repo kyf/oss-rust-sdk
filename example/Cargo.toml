@@ -1,3 +1,5 @@
+[workspace]
+
 [package]
 name = "example"
 version = "0.1.0"
@@ -6,4 +8,4 @@ edition = "2018"
 
 [dependencies]
 oss-rust-sdk = { path = "../" }
-tokio = { version = "0.2.20", features = ["full"] }
+tokio = { version = "1.7.1", features = ["full"] }

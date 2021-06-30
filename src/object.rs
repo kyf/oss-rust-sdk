@@ -1,77 +1,78 @@
 use quick_xml::{events::Event, Reader};
 use reqwest::header::{HeaderMap, CONTENT_LENGTH, DATE};
 use std::collections::HashMap;
+use std::future::Future;
 
 use super::auth::*;
 use super::errors::{Error, ObjectError};
 use super::oss::OSS;
 use super::utils::*;
 
-pub trait ObjectAPI {
-    fn get_object<S1, S2, H, R>(
-        &self,
-        object_name: S1,
-        headers: H,
-        resources: R,
-    ) -> Result<Vec<u8>, Error>
-    where
-        S1: AsRef<str>,
-        S2: AsRef<str>,
-        H: Into<Option<HashMap<S2, S2>>>,
-        R: Into<Option<HashMap<S2, Option<S2>>>>;
+// pub trait ObjectAPI {
+//     fn get_object<S1, S2, H, R>(
+//         &self,
+//         object_name: S1,
+//         headers: H,
+//         resources: R,
+//     ) -> impl Future<Output = Result<Vec<u8>, Error>>
+//     where
+//         S1: AsRef<str>,
+//         S2: AsRef<str>,
+//         H: Into<Option<HashMap<S2, S2>>>,
+//         R: Into<Option<HashMap<S2, Option<S2>>>>;
 
-    fn get_object_acl<S>(&self, object_name: S) -> Result<String, Error>
-    where
-        S: AsRef<str>;
+//     fn get_object_acl<S>(&self, object_name: S) -> Result<String, Error>
+//     where
+//         S: AsRef<str>;
 
-    fn put_object_from_file<S1, S2, S3, H, R>(
-        &self,
-        file: S1,
-        object_name: S2,
-        headers: H,
-        resources: R,
-    ) -> Result<(), Error>
-    where
-        S1: AsRef<str>,
-        S2: AsRef<str>,
-        S3: AsRef<str>,
-        H: Into<Option<HashMap<S3, S3>>>,
-        R: Into<Option<HashMap<S3, Option<S3>>>>;
+//     fn put_object_from_file<S1, S2, S3, H, R>(
+//         &self,
+//         file: S1,
+//         object_name: S2,
+//         headers: H,
+//         resources: R,
+//     ) -> Result<(), Error>
+//     where
+//         S1: AsRef<str>,
+//         S2: AsRef<str>,
+//         S3: AsRef<str>,
+//         H: Into<Option<HashMap<S3, S3>>>,
+//         R: Into<Option<HashMap<S3, Option<S3>>>>;
 
-    fn put_object_from_buffer<S1, S2, H, R>(
-        &self,
-        buf: &[u8],
-        object_name: S1,
-        headers: H,
-        resources: R,
-    ) -> Result<(), Error>
-    where
-        S1: AsRef<str>,
-        S2: AsRef<str>,
-        H: Into<Option<HashMap<S2, S2>>>,
-        R: Into<Option<HashMap<S2, Option<S2>>>>;
+//     fn put_object_from_buffer<S1, S2, H, R>(
+//         &self,
+//         buf: &[u8],
+//         object_name: S1,
+//         headers: H,
+//         resources: R,
+//     ) -> Result<(), Error>
+//     where
+//         S1: AsRef<str>,
+//         S2: AsRef<str>,
+//         H: Into<Option<HashMap<S2, S2>>>,
+//         R: Into<Option<HashMap<S2, Option<S2>>>>;
 
-    fn copy_object_from_object<S1, S2, S3, H, R>(
-        &self,
-        src: S1,
-        dest: S2,
-        headers: H,
-        resources: R,
-    ) -> Result<(), Error>
-    where
-        S1: AsRef<str>,
-        S2: AsRef<str>,
-        S3: AsRef<str>,
-        H: Into<Option<HashMap<S3, S3>>>,
-        R: Into<Option<HashMap<S3, Option<S3>>>>;
+//     fn copy_object_from_object<S1, S2, S3, H, R>(
+//         &self,
+//         src: S1,
+//         dest: S2,
+//         headers: H,
+//         resources: R,
+//     ) -> Result<(), Error>
+//     where
+//         S1: AsRef<str>,
+//         S2: AsRef<str>,
+//         S3: AsRef<str>,
+//         H: Into<Option<HashMap<S3, S3>>>,
+//         R: Into<Option<HashMap<S3, Option<S3>>>>;
 
-    fn delete_object<S>(&self, object_name: S) -> Result<(), Error>
-    where
-        S: AsRef<str>;
-}
+//     fn delete_object<S>(&self, object_name: S) -> Result<(), Error>
+//     where
+//         S: AsRef<str>;
+// }
 
-impl<'a> ObjectAPI for OSS<'a> {
-    fn get_object<S1, S2, H, R>(
+impl<'a> OSS<'a> {
+    pub async fn get_object<S1, S2, H, R>(
         &self,
         object_name: S1,
         headers: H,
@@ -109,12 +110,12 @@ impl<'a> ObjectAPI for OSS<'a> {
         );
         headers.insert("Authorization", authorization.parse()?);
 
-        let mut resp = self.client.get(&host).headers(headers).send()?;
-        let mut buf: Vec<u8> = vec![];
+        let resp = self.client.get(&host).headers(headers).send().await?;
+        // let mut buf: Vec<u8> = vec![];
 
         if resp.status().is_success() {
-            resp.copy_to(&mut buf)?;
-            Ok(buf)
+            // resp.copy_to(&mut buf)?;
+            Ok(resp.bytes().await?.as_ref().to_vec())
         } else {
             Err(Error::Object(ObjectError::GetError {
                 msg: format!("can not get object, status code: {}", resp.status()).into(),
@@ -122,14 +123,14 @@ impl<'a> ObjectAPI for OSS<'a> {
         }
     }
 
-    fn get_object_acl<S>(&self, object_name: S) -> Result<String, Error>
+    pub async fn get_object_acl<S>(&self, object_name: S) -> Result<String, Error>
     where
         S: AsRef<str>,
     {
         let object_name = object_name.as_ref();
         let mut params: HashMap<&str, Option<&str>> = HashMap::new();
         params.insert("acl", None);
-        let result = String::from_utf8(self.get_object(object_name, None, Some(params))?)?;
+        let result = String::from_utf8(self.get_object(object_name, None, Some(params)).await?)?;
         let mut reader = Reader::from_str(&result);
         reader.trim_text(true);
         let mut buf = Vec::new();
@@ -149,7 +150,7 @@ impl<'a> ObjectAPI for OSS<'a> {
         Ok(grant)
     }
 
-    fn put_object_from_file<S1, S2, S3, H, R>(
+    pub async fn put_object_from_file<S1, S2, S3, H, R>(
         &self,
         file: S1,
         object_name: S2,
@@ -190,7 +191,13 @@ impl<'a> ObjectAPI for OSS<'a> {
         );
         headers.insert("Authorization", authorization.parse()?);
 
-        let resp = self.client.put(&host).headers(headers).body(buf).send()?;
+        let resp = self
+            .client
+            .put(&host)
+            .headers(headers)
+            .body(buf)
+            .send()
+            .await?;
 
         if resp.status().is_success() {
             Ok(())
@@ -201,7 +208,7 @@ impl<'a> ObjectAPI for OSS<'a> {
         }
     }
 
-    fn put_object_from_buffer<S1, S2, H, R>(
+    pub async fn put_object_from_buffer<S1, S2, H, R>(
         &self,
         buf: &[u8],
         object_name: S1,
@@ -245,7 +252,8 @@ impl<'a> ObjectAPI for OSS<'a> {
             .put(&host)
             .headers(headers)
             .body(buf.to_owned())
-            .send()?;
+            .send()
+            .await?;
 
         if resp.status().is_success() {
             Ok(())
@@ -256,7 +264,7 @@ impl<'a> ObjectAPI for OSS<'a> {
         }
     }
 
-    fn copy_object_from_object<S1, S2, S3, H, R>(
+    pub async fn copy_object_from_object<S1, S2, S3, H, R>(
         &self,
         src: S1,
         object_name: S2,
@@ -296,7 +304,7 @@ impl<'a> ObjectAPI for OSS<'a> {
         );
         headers.insert("Authorization", authorization.parse()?);
 
-        let resp = self.client.put(&host).headers(headers).send()?;
+        let resp = self.client.put(&host).headers(headers).send().await?;
 
         if resp.status().is_success() {
             Ok(())
@@ -307,7 +315,7 @@ impl<'a> ObjectAPI for OSS<'a> {
         }
     }
 
-    fn delete_object<S>(&self, object_name: S) -> Result<(), Error>
+    pub async fn delete_object<S>(&self, object_name: S) -> Result<(), Error>
     where
         S: AsRef<str>,
     {
@@ -328,7 +336,7 @@ impl<'a> ObjectAPI for OSS<'a> {
         );
         headers.insert("Authorization", authorization.parse()?);
 
-        let resp = self.client.delete(&host).headers(headers).send()?;
+        let resp = self.client.delete(&host).headers(headers).send().await?;
 
         if resp.status().is_success() {
             Ok(())
