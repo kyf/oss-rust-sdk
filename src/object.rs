@@ -113,7 +113,7 @@ impl<'a> OSS<'a> {
         let resp = self.client.get(&host).headers(headers).send().await?;
 
         if resp.status().is_success() {
-            Ok(resp.bytes().await?)
+            Ok(Bytes::from(resp.text().await?))
         } else {
             Err(Error::Object(ObjectError::GetError {
                 msg: format!("can not get object, status code: {}", resp.status()).into(),
