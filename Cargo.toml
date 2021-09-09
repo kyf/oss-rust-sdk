@@ -9,8 +9,7 @@ license = "Apache-2.0"
 repository = "https://github.com/NoXF/oss-rust-sdk"
 
 [dependencies]
-reqwest = { version = "0.10.6", features = ['json',
-    'cookies',] }
+reqwest = { version = "0.10.6", features = ["json", "cookies"] }
 base64 = "0.13.0"
 chrono = "0.4.19"
 rust-crypto = "0.2.36"
