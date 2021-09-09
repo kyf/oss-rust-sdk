@@ -1,5 +1,5 @@
 [package]
-name = "aliyun-oss"
+name = "aliyun-oss-sdk"
 version = "0.2.1"
 authors = ["NoXF <xianyou.cyq@gmail.com>"]
 edition = "2018"
